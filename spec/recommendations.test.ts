@@ -3,7 +3,7 @@ import { describe, expect, inject, it } from "vitest";
 // The heart of the product: given a selected degree (or two) and courses
 // already completed, which relevant courses can the student take next, and
 // which ones are still blocked? Exercises the seeded three-course BAC chain
-// (COMP1100 -> COMP2100 -> COMP3100, see src/lib/seed.ts) alongside the
+// (COMP1130 -> COMP2100 -> COMP3600, see src/lib/seed.ts) alongside the
 // Finance side, so a double-degree selection and a single completion show
 // both an unlocked course and a still-blocked one at once. Starts red —
 // there's no degree-selection or completed-course feature yet — and turns
@@ -30,7 +30,7 @@ describe("recommendations", () => {
   });
 
   it("accepts a completed course and redirects back to the study plan", async () => {
-    const res = await post("/api/completed-courses", new URLSearchParams({ courseCode: "COMP1100" }));
+    const res = await post("/api/completed-courses", new URLSearchParams({ courseCode: "COMP1130" }));
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe("/");
   });
@@ -39,15 +39,15 @@ describe("recommendations", () => {
     const res = await fetch(baseUrl);
     const body = await res.text();
 
-    // BAC: COMP1100 completed unlocks COMP2100, but COMP3100 stays blocked on COMP2100.
+    // BAC: COMP1130 completed unlocks COMP2100, but COMP3600 stays blocked on COMP2100.
     expect(body).toContain("COMP2100");
-    expect(body).toContain("COMP3100");
-    expect(body).toMatch(/COMP2100[^]*unlocks[^]*COMP3100/);
-    expect(body).toMatch(/COMP3100[^]*(blocked|needs)[^]*COMP2100/);
+    expect(body).toContain("COMP3600");
+    expect(body).toMatch(/COMP2100[^]*unlocks[^]*COMP3600/);
+    expect(body).toMatch(/COMP3600[^]*(blocked|needs)[^]*COMP2100/);
 
     // BFIN: selected as the double-degree partner, so its courses appear too.
-    expect(body).toContain("FIN1101");
-    expect(body).toContain("FIN2101");
+    expect(body).toContain("FINM1001");
+    expect(body).toContain("FINM2001");
   });
 });
 
@@ -56,7 +56,7 @@ describe("recommendations", () => {
 // show up grouped by year/semester in "My Study Plan", persist across a
 // reload, refuse an obvious duplicate, and be removable. Builds directly on
 // the state the "recommendations" describe block above already established
-// (double BAC+BFIN, COMP1100 completed, so COMP2100 is available) rather than
+// (double BAC+BFIN, COMP1130 completed, so COMP2100 is available) rather than
 // re-deriving it — appended to this file rather than a new one so Vitest's
 // in-file ordering guarantees it runs after that state exists, with no risk
 // of racing another file's mutation of the same global tables.
@@ -114,7 +114,7 @@ describe("planning from a recommendation", () => {
 // engine) and Browse Electives (courses with no requirement_courses row for
 // the selected degree(s), planned through the same plan_entries mechanism
 // with a null requirement). Appended to this file for the same reason as the
-// Stage 4 block above: it builds on the double BAC+BFIN / COMP1100-completed
+// Stage 4 block above: it builds on the double BAC+BFIN / COMP1130-completed
 // state already established by the "recommendations" describe block, and
 // in-file ordering keeps that dependency safe from cross-file races.
 describe("historical offering guidance and electives", () => {
@@ -131,14 +131,14 @@ describe("historical offering guidance and electives", () => {
     return match ? match[1] : "";
   };
 
-  it("shows COMP2100's S1-only pattern next to the course it unlocks, and COMP3100's S2-only pattern", async () => {
+  it("shows COMP2100's S1-only pattern next to the course it unlocks, and COMP3600's S2-only pattern", async () => {
     const res = await fetch(baseUrl);
     const body = await res.text();
 
-    expect(body).toMatch(/COMP2100[^]*unlocks[^]*COMP3100[^]*Historically offered: Semester 1/);
+    expect(body).toMatch(/COMP2100[^]*unlocks[^]*COMP3600[^]*Historically offered: Semester 1/);
     expect(body).toMatch(/COMP2100[^]*Planning note: historically S1 only/);
-    expect(body).toMatch(/COMP3100[^]*Historically offered: Semester 2/);
-    expect(body).toMatch(/COMP3100[^]*Planning note: historically S2 only/);
+    expect(body).toMatch(/COMP3600[^]*Historically offered: Semester 2/);
+    expect(body).toMatch(/COMP3600[^]*Planning note: historically S2 only/);
   });
 
   it("includes a disclaimer that historical offerings are not a guarantee of future availability", async () => {
@@ -147,24 +147,24 @@ describe("historical offering guidance and electives", () => {
     expect(body).toMatch(/not a prediction or guarantee/);
   });
 
-  it("lists ANTH1001 under Browse Electives, not in the degree recommendations", async () => {
+  it("lists ECON1101 under Browse Electives, not in the degree recommendations", async () => {
     const res = await fetch(baseUrl);
     const body = await res.text();
 
-    expect(section(body, "electives")).toContain("ANTH1001");
-    expect(section(body, "recommendations")).not.toContain("ANTH1001");
+    expect(section(body, "electives")).toContain("ECON1101");
+    expect(section(body, "recommendations")).not.toContain("ECON1101");
   });
 
   it("plans an elective into the study plan with no requirement, and it persists across reload", async () => {
     const planRes = await post(
       "/api/plan-entries",
-      new URLSearchParams({ courseCode: "ANTH1001", year: "2029", semester: "S2" }),
+      new URLSearchParams({ courseCode: "ECON1101", year: "2029", semester: "S2" }),
     );
     expect(planRes.status).toBe(303);
     expect(planRes.headers.get("location")).toBe("/");
 
     const page = await fetch(baseUrl);
     const body = await page.text();
-    expect(body).toMatch(/2029 S2[^]*ANTH1001[^]*elective/);
+    expect(body).toMatch(/2029 S2[^]*ECON1101[^]*elective/);
   });
 });

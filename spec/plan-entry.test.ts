@@ -4,7 +4,7 @@ import { describe, expect, inject, it } from "vitest";
 // create something, and it's still there." Here, creating something means
 // adding a planned course to the study plan: a course code, the year and
 // semester it's planned for, and which degree requirement it counts
-// towards. Posts against the seeded catalogue (COMP1100, part of the BAC
+// towards. Posts against the seeded catalogue (COMP1130, part of the BAC
 // Core requirement and free of any prerequisite — see src/lib/seed.ts)
 // rather than invented values, so this exercises the real requirement_id
 // foreign key once the API exists, and stays valid once prerequisite
@@ -13,7 +13,7 @@ import { describe, expect, inject, it } from "vitest";
 const baseUrl = inject("baseUrl");
 
 describe("plan entry", () => {
-  const courseCode = "COMP1100"; // seeded: BAC Core, no prerequisite
+  const courseCode = "COMP1130"; // seeded: BAC Core, no prerequisite
   const requirementCode = "BAC-CORE"; // seeded requirement's natural key
   const year = "2027";
   const semester = "S1";

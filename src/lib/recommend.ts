@@ -151,7 +151,7 @@ export function getRecommendations(): CourseRecommendation[] {
 }
 
 // Electives: seeded courses that don't count towards any requirement of the
-// currently selected degree(s) — ANTH1001 in the seeded catalogue. Same
+// currently selected degree(s) — ECON1101 in the seeded catalogue. Same
 // completed/available/blocked classification as recommendations, but no
 // "unlocks" (electives aren't a required chain) and no requirement code
 // (they're planned with a null requirement unless the student explicitly
