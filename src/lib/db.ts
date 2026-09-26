@@ -7,6 +7,8 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { seedCatalogue } from "./seed";
 import {
   completedCourses,
+  type CourseOffering,
+  courseOfferings,
   type CoursePrerequisite,
   coursePrerequisites,
   type Course,
@@ -168,6 +170,10 @@ export function markCourseCompleted(courseCode: string): void {
 
 export function listCoursePrerequisites(): CoursePrerequisite[] {
   return db.select().from(coursePrerequisites).all();
+}
+
+export function listCourseOfferings(): CourseOffering[] {
+  return db.select().from(courseOfferings).all();
 }
 
 export interface RequirementCourseView {

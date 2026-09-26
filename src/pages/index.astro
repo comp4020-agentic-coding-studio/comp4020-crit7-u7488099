@@ -6,7 +6,7 @@ import {
   listPlanEntries,
   listRequirements,
 } from "../lib/db";
-import { getRecommendations } from "../lib/recommend";
+import { getElectives, getRecommendations, offeringPatternLabel, planningNote } from "../lib/recommend";
 import "../styles.css";
 
 const planEntries = listPlanEntries();
@@ -19,6 +19,7 @@ const selectedDegrees = getSelectedDegrees();
 const selectedCodes = new Set(selectedDegrees.map((degree) => degree.code));
 const mode = selectedCodes.size >= 2 ? "double" : "single";
 const recommendations = getRecommendations();
+const electives = getElectives();
 
 // Group the study plan by year/semester for display. listPlanEntries is
 // already ordered by (year, semester), so insertion order into the map
@@ -97,6 +98,13 @@ for (const entry of planEntries) {
         }
       </section>
 
+      <p>
+        Historical offering patterns below (in "What can I take next?" and "Browse
+        Electives") reflect past semesters in the seeded data only — they are not a
+        prediction or guarantee that ANU will run a course again in any particular
+        future semester.
+      </p>
+
       <section>
         <h2>What can I take next?</h2>
         {
@@ -114,6 +122,8 @@ for (const entry of planEntries) {
                         ? `available now — unlocks ${rec.unlocks.join(", ")}`
                         : "available now")}
                     {rec.status === "blocked" && `blocked — needs ${rec.missing.join(", ")}`}
+                    {offeringPatternLabel(rec.offeringPattern) && <p>{offeringPatternLabel(rec.offeringPattern)}</p>}
+                    {planningNote(rec.offeringPattern) && <p>{planningNote(rec.offeringPattern)}</p>}
                     {rec.status !== "completed" && (
                       <form method="post" action="/api/completed-courses">
                         <input type="hidden" name="courseCode" value={rec.courseCode} />
@@ -138,6 +148,56 @@ for (const entry of planEntries) {
                           />
                           <label for={`plan-semester-${rec.courseCode}`}>Semester</label>
                           <select id={`plan-semester-${rec.courseCode}`} name="semester" required>
+                            <option value="S1">S1</option>
+                            <option value="S2">S2</option>
+                          </select>
+                          <button>Plan course</button>
+                        </form>
+                      ))}
+                  </li>
+                ))
+              }
+            </ul>
+          )
+        }
+      </section>
+
+      <section>
+        <h2>Browse Electives</h2>
+        <p>Courses that don't count towards either of your selected degrees, but can still be planned.</p>
+        {
+          electives.length === 0 ? (
+            <p>No electives in the seeded catalogue right now.</p>
+          ) : (
+            <ul id="electives">
+              {
+                electives.map((elective) => (
+                  <li>
+                    {elective.courseCode} ({elective.courseTitle}) — {elective.units} units —{" "}
+                    {elective.status === "completed" && "completed"}
+                    {elective.status === "available" && "available now"}
+                    {elective.status === "blocked" && `blocked — needs ${elective.missing.join(", ")}`}
+                    {offeringPatternLabel(elective.offeringPattern) && (
+                      <p>{offeringPatternLabel(elective.offeringPattern)}</p>
+                    )}
+                    {planningNote(elective.offeringPattern) && <p>{planningNote(elective.offeringPattern)}</p>}
+                    {elective.status === "available" &&
+                      (plannedCodes.has(elective.courseCode) ? (
+                        <p>Already in your study plan.</p>
+                      ) : (
+                        <form method="post" action="/api/plan-entries">
+                          <input type="hidden" name="courseCode" value={elective.courseCode} />
+                          <label for={`elective-year-${elective.courseCode}`}>Year</label>
+                          <input
+                            id={`elective-year-${elective.courseCode}`}
+                            name="year"
+                            type="number"
+                            required
+                            min="2024"
+                            max="2035"
+                          />
+                          <label for={`elective-semester-${elective.courseCode}`}>Semester</label>
+                          <select id={`elective-semester-${elective.courseCode}`} name="semester" required>
                             <option value="S1">S1</option>
                             <option value="S2">S2</option>
                           </select>

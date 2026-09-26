@@ -109,3 +109,62 @@ describe("planning from a recommendation", () => {
     expect(body).not.toContain("2028 S1");
   });
 });
+
+// Stage 5: historical offering guidance (course_offerings, not a forecasting
+// engine) and Browse Electives (courses with no requirement_courses row for
+// the selected degree(s), planned through the same plan_entries mechanism
+// with a null requirement). Appended to this file for the same reason as the
+// Stage 4 block above: it builds on the double BAC+BFIN / COMP1100-completed
+// state already established by the "recommendations" describe block, and
+// in-file ordering keeps that dependency safe from cross-file races.
+describe("historical offering guidance and electives", () => {
+  const post = (path: string, body: URLSearchParams) =>
+    fetch(new URL(path, baseUrl), {
+      method: "POST",
+      headers: { origin: baseUrl },
+      body,
+      redirect: "manual",
+    });
+
+  const section = (body: string, id: string) => {
+    const match = body.match(new RegExp(`<ul id="${id}">([^]*?)</ul>`));
+    return match ? match[1] : "";
+  };
+
+  it("shows COMP2100's S1-only pattern next to the course it unlocks, and COMP3100's S2-only pattern", async () => {
+    const res = await fetch(baseUrl);
+    const body = await res.text();
+
+    expect(body).toMatch(/COMP2100[^]*unlocks[^]*COMP3100[^]*Historically offered: Semester 1/);
+    expect(body).toMatch(/COMP2100[^]*Planning note: historically S1 only/);
+    expect(body).toMatch(/COMP3100[^]*Historically offered: Semester 2/);
+    expect(body).toMatch(/COMP3100[^]*Planning note: historically S2 only/);
+  });
+
+  it("includes a disclaimer that historical offerings are not a guarantee of future availability", async () => {
+    const res = await fetch(baseUrl);
+    const body = await res.text();
+    expect(body).toMatch(/not a prediction or guarantee/);
+  });
+
+  it("lists ANTH1001 under Browse Electives, not in the degree recommendations", async () => {
+    const res = await fetch(baseUrl);
+    const body = await res.text();
+
+    expect(section(body, "electives")).toContain("ANTH1001");
+    expect(section(body, "recommendations")).not.toContain("ANTH1001");
+  });
+
+  it("plans an elective into the study plan with no requirement, and it persists across reload", async () => {
+    const planRes = await post(
+      "/api/plan-entries",
+      new URLSearchParams({ courseCode: "ANTH1001", year: "2029", semester: "S2" }),
+    );
+    expect(planRes.status).toBe(303);
+    expect(planRes.headers.get("location")).toBe("/");
+
+    const page = await fetch(baseUrl);
+    const body = await page.text();
+    expect(body).toMatch(/2029 S2[^]*ANTH1001[^]*elective/);
+  });
+});
