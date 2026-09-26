@@ -114,13 +114,20 @@ export function listPlanEntries(): PlanEntryView[] {
     .all();
 }
 
+// courseCode is unique, so planning an already-planned course is a silent
+// no-op rather than a second row or an error — the first term it was planned
+// for wins.
 export function addPlanEntry(entry: {
   courseCode: string;
   year: number;
   semester: string;
   requirementId: number | null;
-}) {
-  return db.insert(planEntries).values(entry).returning().get();
+}): void {
+  db.insert(planEntries).values(entry).onConflictDoNothing({ target: planEntries.courseCode }).run();
+}
+
+export function removePlanEntry(courseCode: string): void {
+  db.delete(planEntries).where(eq(planEntries.courseCode, courseCode)).run();
 }
 
 // --- degree selection & completed courses -------------------------------
@@ -166,11 +173,16 @@ export function listCoursePrerequisites(): CoursePrerequisite[] {
 export interface RequirementCourseView {
   degreeId: number;
   courseCode: string;
+  requirementCode: string;
 }
 
 export function listRequirementCourses(): RequirementCourseView[] {
   return db
-    .select({ degreeId: requirements.degreeId, courseCode: requirementCourses.courseCode })
+    .select({
+      degreeId: requirements.degreeId,
+      courseCode: requirementCourses.courseCode,
+      requirementCode: requirements.code,
+    })
     .from(requirementCourses)
     .innerJoin(requirements, eq(requirementCourses.requirementId, requirements.id))
     .all();

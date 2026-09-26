@@ -50,3 +50,62 @@ describe("recommendations", () => {
     expect(body).toContain("FIN2101");
   });
 });
+
+// Stage 4: "Plan course" on a recommendation must go through the same
+// plan_entries table the manual form uses (no second planning mechanism),
+// show up grouped by year/semester in "My Study Plan", persist across a
+// reload, refuse an obvious duplicate, and be removable. Builds directly on
+// the state the "recommendations" describe block above already established
+// (double BAC+BFIN, COMP1100 completed, so COMP2100 is available) rather than
+// re-deriving it — appended to this file rather than a new one so Vitest's
+// in-file ordering guarantees it runs after that state exists, with no risk
+// of racing another file's mutation of the same global tables.
+describe("planning from a recommendation", () => {
+  const post = (path: string, body: URLSearchParams) =>
+    fetch(new URL(path, baseUrl), {
+      method: "POST",
+      headers: { origin: baseUrl },
+      body,
+      redirect: "manual",
+    });
+
+  it("plans an available recommended course for a given year and semester", async () => {
+    const res = await post(
+      "/api/plan-entries",
+      new URLSearchParams({ courseCode: "COMP2100", requirementCode: "BAC-CORE", year: "2028", semester: "S1" }),
+    );
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("/");
+  });
+
+  it("shows the planned course grouped under its year and semester, with requirement context", async () => {
+    const res = await fetch(baseUrl);
+    const body = await res.text();
+    expect(body).toContain("2028 S1");
+    expect(body).toMatch(/2028 S1[^]*COMP2100[^]*BAC-CORE/);
+  });
+
+  it("does not create a duplicate when the same course is planned again", async () => {
+    const res = await post(
+      "/api/plan-entries",
+      new URLSearchParams({ courseCode: "COMP2100", requirementCode: "BAC-CORE", year: "2030", semester: "S2" }),
+    );
+    expect(res.status).toBe(303);
+
+    const page = await fetch(baseUrl);
+    const body = await page.text();
+    // The original term still holds the entry; no second group was created.
+    expect(body).toContain("2028 S1");
+    expect(body).not.toContain("2030 S2");
+  });
+
+  it("removes a planned course, and the removal persists across a reload", async () => {
+    const res = await post("/api/plan-entries/remove", new URLSearchParams({ courseCode: "COMP2100" }));
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("/");
+
+    const page = await fetch(baseUrl);
+    const body = await page.text();
+    expect(body).not.toContain("2028 S1");
+  });
+});

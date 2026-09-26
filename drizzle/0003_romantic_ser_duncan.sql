@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `plan_entries_course_code_unique` ON `plan_entries` (`course_code`);

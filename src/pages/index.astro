@@ -10,7 +10,8 @@ import { getRecommendations } from "../lib/recommend";
 import "../styles.css";
 
 const planEntries = listPlanEntries();
-const courseOptions = listCourses();
+const plannedCodes = new Set(planEntries.map((entry) => entry.courseCode));
+const courseOptions = listCourses().filter((course) => !plannedCodes.has(course.code));
 const requirementOptions = listRequirements();
 
 const degreeOptions = listDegrees();
@@ -18,6 +19,20 @@ const selectedDegrees = getSelectedDegrees();
 const selectedCodes = new Set(selectedDegrees.map((degree) => degree.code));
 const mode = selectedCodes.size >= 2 ? "double" : "single";
 const recommendations = getRecommendations();
+
+// Group the study plan by year/semester for display. listPlanEntries is
+// already ordered by (year, semester), so insertion order into the map
+// gives chronological groups for free.
+const planByTerm = new Map<string, typeof planEntries>();
+for (const entry of planEntries) {
+  const term = `${entry.year} ${entry.semester}`;
+  const group = planByTerm.get(term);
+  if (group) {
+    group.push(entry);
+  } else {
+    planByTerm.set(term, [entry]);
+  }
+}
 ---
 
 <!doctype html>
@@ -105,6 +120,30 @@ const recommendations = getRecommendations();
                         <button>Mark completed</button>
                       </form>
                     )}
+                    {rec.status === "available" &&
+                      (plannedCodes.has(rec.courseCode) ? (
+                        <p>Already in your study plan.</p>
+                      ) : (
+                        <form method="post" action="/api/plan-entries">
+                          <input type="hidden" name="courseCode" value={rec.courseCode} />
+                          <input type="hidden" name="requirementCode" value={rec.requirementCode ?? ""} />
+                          <label for={`plan-year-${rec.courseCode}`}>Year</label>
+                          <input
+                            id={`plan-year-${rec.courseCode}`}
+                            name="year"
+                            type="number"
+                            required
+                            min="2024"
+                            max="2035"
+                          />
+                          <label for={`plan-semester-${rec.courseCode}`}>Semester</label>
+                          <select id={`plan-semester-${rec.courseCode}`} name="semester" required>
+                            <option value="S1">S1</option>
+                            <option value="S2">S2</option>
+                          </select>
+                          <button>Plan course</button>
+                        </form>
+                      ))}
                   </li>
                 ))
               }
@@ -113,52 +152,83 @@ const recommendations = getRecommendations();
         }
       </section>
 
-      <form method="post" action="/api/plan-entries">
-        <label for="courseCode">Course</label>
-        <select id="courseCode" name="courseCode" required>
-          {
-            courseOptions.map((course) => (
-              <option value={course.code}>
-                {course.code} — {course.title}
-              </option>
-            ))
-          }
-        </select>
-
-        <label for="year">Year</label>
-        <input id="year" name="year" type="number" required min="2024" max="2035" />
-
-        <label for="semester">Semester</label>
-        <select id="semester" name="semester" required>
-          <option value="S1">S1</option>
-          <option value="S2">S2</option>
-        </select>
-
-        <label for="requirementCode">Requirement</label>
-        <select id="requirementCode" name="requirementCode" required>
-          {
-            requirementOptions.map((requirement) => (
-              <option value={requirement.code}>
-                {requirement.degreeName}: {requirement.name}
-              </option>
-            ))
-          }
-        </select>
-
-        <button>Add to plan</button>
-      </form>
-
-      <ul id="plan-entries">
+      <section>
+        <h2>My Study Plan</h2>
         {
-          planEntries.map((entry) => (
-            <li>
-              {entry.courseCode} ({entry.courseTitle}) — {entry.year}{" "}
-              {entry.semester}
-              {entry.requirementCode ? ` — ${entry.requirementCode}` : ""}
-            </li>
-          ))
+          planByTerm.size === 0 ? (
+            <p>Nothing planned yet — mark a course above, or add any course below.</p>
+          ) : (
+            [...planByTerm.entries()].map(([term, entries]) => (
+              <div>
+                <h3>{term}</h3>
+                <ul>
+                  {
+                    entries.map((entry) => (
+                      <li>
+                        {entry.courseCode} ({entry.courseTitle})
+                        {entry.requirementCode
+                          ? ` — ${entry.requirementCode} (${entry.requirementName})`
+                          : " — elective"}
+                        <form method="post" action="/api/plan-entries/remove">
+                          <input type="hidden" name="courseCode" value={entry.courseCode} />
+                          <button>Remove</button>
+                        </form>
+                      </li>
+                    ))
+                  }
+                </ul>
+              </div>
+            ))
+          )
         }
-      </ul>
+
+        <h3>Add any other course</h3>
+        <p>
+          For an elective or out-of-degree course, or to plan ahead for something not yet
+          recommended above.
+        </p>
+        {
+          courseOptions.length === 0 ? (
+            <p>Every seeded course is already in your plan.</p>
+          ) : (
+            <form method="post" action="/api/plan-entries">
+              <label for="courseCode">Course</label>
+              <select id="courseCode" name="courseCode" required>
+                {
+                  courseOptions.map((course) => (
+                    <option value={course.code}>
+                      {course.code} — {course.title}
+                    </option>
+                  ))
+                }
+              </select>
+
+              <label for="year">Year</label>
+              <input id="year" name="year" type="number" required min="2024" max="2035" />
+
+              <label for="semester">Semester</label>
+              <select id="semester" name="semester" required>
+                <option value="S1">S1</option>
+                <option value="S2">S2</option>
+              </select>
+
+              <label for="requirementCode">Requirement (optional)</label>
+              <select id="requirementCode" name="requirementCode">
+                <option value="">— none (elective) —</option>
+                {
+                  requirementOptions.map((requirement) => (
+                    <option value={requirement.code}>
+                      {requirement.degreeName}: {requirement.name}
+                    </option>
+                  ))
+                }
+              </select>
+
+              <button>Add to plan</button>
+            </form>
+          )
+        }
+      </section>
     </main>
   </body>
 </html>

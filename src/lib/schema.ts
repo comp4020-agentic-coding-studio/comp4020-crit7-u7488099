@@ -96,10 +96,13 @@ export type RequirementCourse = typeof requirementCourses.$inferSelect;
 // The persisted study plan: a planned course, when it's planned for, and
 // which requirement it counts towards. Nullable requirementId leaves room
 // for planning a course that isn't tied to any requirement (an elective).
+// courseCode is unique — a course is either not in the plan, or in it once;
+// planning it again for a different term is a no-op rather than a second row.
 export const planEntries = sqliteTable("plan_entries", {
   id: int().primaryKey({ autoIncrement: true }),
   courseCode: text("course_code")
     .notNull()
+    .unique()
     .references(() => courses.code),
   year: int().notNull(),
   semester: text().notNull(),
