@@ -15,6 +15,13 @@
       "when": 1790452787795,
       "tag": "0001_sticky_killraven",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790453770071,
+      "tag": "0002_clumsy_morlocks",
+      "breakpoints": true
     }
   ]
 }

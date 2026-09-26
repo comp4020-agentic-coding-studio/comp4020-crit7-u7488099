@@ -6,14 +6,20 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { seedCatalogue } from "./seed";
 import {
+  completedCourses,
+  type CoursePrerequisite,
+  coursePrerequisites,
   type Course,
   courses,
+  type Degree,
   degrees,
   type Message,
   messages,
   planEntries,
   type Requirement,
+  requirementCourses,
   requirements,
+  selectedDegrees,
 } from "./schema";
 
 // One SQLite file is the app's whole persistent state. In production
@@ -115,4 +121,57 @@ export function addPlanEntry(entry: {
   requirementId: number | null;
 }) {
   return db.insert(planEntries).values(entry).returning().get();
+}
+
+// --- degree selection & completed courses -------------------------------
+
+export function listDegrees(): Degree[] {
+  return db.select().from(degrees).orderBy(asc(degrees.code)).all();
+}
+
+export function getSelectedDegrees(): Degree[] {
+  return db
+    .select({ id: degrees.id, code: degrees.code, name: degrees.name })
+    .from(selectedDegrees)
+    .innerJoin(degrees, eq(selectedDegrees.degreeId, degrees.id))
+    .all();
+}
+
+export function setSelectedDegrees(degreeIds: number[]): void {
+  db.delete(selectedDegrees).run();
+  if (degreeIds.length > 0) {
+    db
+      .insert(selectedDegrees)
+      .values(degreeIds.map((degreeId) => ({ degreeId })))
+      .run();
+  }
+}
+
+export function listCompletedCourses(): Course[] {
+  return db
+    .select({ code: courses.code, title: courses.title, units: courses.units })
+    .from(completedCourses)
+    .innerJoin(courses, eq(completedCourses.courseCode, courses.code))
+    .all();
+}
+
+export function markCourseCompleted(courseCode: string): void {
+  db.insert(completedCourses).values({ courseCode }).onConflictDoNothing().run();
+}
+
+export function listCoursePrerequisites(): CoursePrerequisite[] {
+  return db.select().from(coursePrerequisites).all();
+}
+
+export interface RequirementCourseView {
+  degreeId: number;
+  courseCode: string;
+}
+
+export function listRequirementCourses(): RequirementCourseView[] {
+  return db
+    .select({ degreeId: requirements.degreeId, courseCode: requirementCourses.courseCode })
+    .from(requirementCourses)
+    .innerJoin(requirements, eq(requirementCourses.requirementId, requirements.id))
+    .all();
 }

@@ -110,3 +110,28 @@ export const planEntries = sqliteTable("plan_entries", {
 });
 
 export type PlanEntry = typeof planEntries.$inferSelect;
+
+// Which degree(s) the student is currently pursuing — one row for a single
+// degree, two for a double degree. No separate "mode" column: the row count
+// is the source of truth, and the UI is what presents it as a Single/Double
+// Degree choice.
+export const selectedDegrees = sqliteTable("selected_degrees", {
+  degreeId: int("degree_id")
+    .primaryKey()
+    .references(() => degrees.id),
+});
+
+export type SelectedDegree = typeof selectedDegrees.$inferSelect;
+
+// Courses the student has already completed. Manually entered for this
+// prototype; a real product would source this from ANU's student records.
+export const completedCourses = sqliteTable("completed_courses", {
+  courseCode: text("course_code")
+    .primaryKey()
+    .references(() => courses.code),
+  completedAt: text("completed_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export type CompletedCourse = typeof completedCourses.$inferSelect;

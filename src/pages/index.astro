@@ -1,10 +1,23 @@
 ---
-import { listCourses, listPlanEntries, listRequirements } from "../lib/db";
+import {
+  getSelectedDegrees,
+  listCourses,
+  listDegrees,
+  listPlanEntries,
+  listRequirements,
+} from "../lib/db";
+import { getRecommendations } from "../lib/recommend";
 import "../styles.css";
 
 const planEntries = listPlanEntries();
 const courseOptions = listCourses();
 const requirementOptions = listRequirements();
+
+const degreeOptions = listDegrees();
+const selectedDegrees = getSelectedDegrees();
+const selectedCodes = new Set(selectedDegrees.map((degree) => degree.code));
+const mode = selectedCodes.size >= 2 ? "double" : "single";
+const recommendations = getRecommendations();
 ---
 
 <!doctype html>
@@ -27,6 +40,79 @@ const requirementOptions = listRequirements();
         towards. State lives in SQLite on the machine's volume, so it
         survives a reload and a redeploy.
       </p>
+
+      <section>
+        <h2>Degree(s)</h2>
+        <p>Choose Single Degree or Double Degree, then tick the matching number of degrees below.</p>
+        <form method="post" action="/api/degree-selection">
+          <fieldset>
+            <legend>Mode</legend>
+            <label for="mode-single">
+              <input type="radio" id="mode-single" name="mode" value="single" checked={mode === "single"} />
+              Single Degree
+            </label>
+            <label for="mode-double">
+              <input type="radio" id="mode-double" name="mode" value="double" checked={mode === "double"} />
+              Double Degree
+            </label>
+          </fieldset>
+          <fieldset>
+            <legend>Degrees</legend>
+            {
+              degreeOptions.map((degree) => (
+                <label for={`degree-${degree.code}`}>
+                  <input
+                    type="checkbox"
+                    id={`degree-${degree.code}`}
+                    name="degreeCode"
+                    value={degree.code}
+                    checked={selectedCodes.has(degree.code)}
+                  />
+                  {degree.name}
+                </label>
+              ))
+            }
+          </fieldset>
+          <button>Update degree selection</button>
+        </form>
+        {
+          selectedDegrees.length > 0 && (
+            <p>Currently selected: {selectedDegrees.map((degree) => degree.name).join(" + ")}</p>
+          )
+        }
+      </section>
+
+      <section>
+        <h2>What can I take next?</h2>
+        {
+          selectedDegrees.length === 0 ? (
+            <p>Select at least one degree above to see recommendations.</p>
+          ) : (
+            <ul id="recommendations">
+              {
+                recommendations.map((rec) => (
+                  <li>
+                    {rec.courseCode} ({rec.courseTitle}) —{" "}
+                    {rec.status === "completed" && "completed"}
+                    {rec.status === "available" &&
+                      (rec.unlocks.length > 0
+                        ? `available now — unlocks ${rec.unlocks.join(", ")}`
+                        : "available now")}
+                    {rec.status === "blocked" && `blocked — needs ${rec.missing.join(", ")}`}
+                    {rec.status !== "completed" && (
+                      <form method="post" action="/api/completed-courses">
+                        <input type="hidden" name="courseCode" value={rec.courseCode} />
+                        <button>Mark completed</button>
+                      </form>
+                    )}
+                  </li>
+                ))
+              }
+            </ul>
+          )
+        }
+      </section>
+
       <form method="post" action="/api/plan-entries">
         <label for="courseCode">Course</label>
         <select id="courseCode" name="courseCode" required>
